@@ -23,7 +23,7 @@ pak::pak("ryanzomorrodi/legs")
   <li><input type="checkbox" disabled> Add scolling down half and full pages</li>
   <li><input type="checkbox" disabled> Figure out a better method to truncate columns</li>
   <li><input type="checkbox" disabled> Show help</li>
-  <li><input type="checkbox" disabled> Disable entering when data is already a single</li>
+  <li><input type="checkbox" disabled> Disable entering when data is already a single item vector</li>
 </ul>
 
 ## Don't know how the ui would look like, but would be cool to add
