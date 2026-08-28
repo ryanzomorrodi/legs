@@ -19,6 +19,11 @@ pak::pak("ryanzomorrodi/legs")
 <ul>
   <li><input type="checkbox" disabled> Allow for packed `data.frames`</li>
   <li><input type="checkbox" disabled> Yank</li>
+  <li><input type="checkbox" disabled> Mouse scrolling</li>
+  <li><input type="checkbox" disabled> Add scolling down half and full pages</li>
+  <li><input type="checkbox" disabled> Figure out a better method to truncate columns</li>
+  <li><input type="checkbox" disabled> Show help</li>
+  <li><input type="checkbox" disabled> Disable entering when data is already a single</li>
 </ul>
 
 ## Don't know how the ui would look like, but would be cool to add

@@ -19,17 +19,17 @@ impl RobjContainer {
 
     pub fn index(&self, row: usize, col: usize) -> Option<Robj> {
         match self {
-            RobjContainer::DataFrame { robj } => robj.index(col).ok()?.index(row).ok(),
+            RobjContainer::DataFrame { robj } => robj.index(col + 1).ok()?.index(row + 1).ok(),
             RobjContainer::Matrix { robj } => {
                 let n_rows = robj
                     .get_attrib("dim")?
                     .as_integer_slice()?
                     .first()
                     .copied()? as usize;
-                robj.index((col - 1) * n_rows + row).ok()
+                robj.index(col * n_rows + row + 1).ok()
             }
-            RobjContainer::List { robj } => robj.index(row).ok(),
-            RobjContainer::Vector { robj } => robj.index(row).ok(),
+            RobjContainer::List { robj } => robj.index(row + 1).ok(),
+            RobjContainer::Vector { robj } => robj.index(row + 1).ok(),
         }
     }
 }
