@@ -5,8 +5,20 @@
 #' @useDynLib legs, .registration = TRUE
 NULL
 
-#' Render a dataframe inside a full terminal view.
+#' @title Invoke legs Data Viewer
+#' @description Invoke the legs terminal user interface (tui) to interactively explore R data.
+#' @param x A data.frame, matrix, list, or atomic vector
+#' @return No return value.
+#' @examples
+#' if (interactive()) {
+#'   df <- data.frame(x = 1:10, y = LETTERS[1:10])
+#'   view(df)
+#'   view(as.matrix(df))
+#'   view(as.list(df))
+#'   view(df$x)
+#' }
+#'
 #' @export
-view_df <- function(df) .Call(wrap__view_df, df)
+view <- function(x) .Call(wrap__view, x)
 
 # nolint end

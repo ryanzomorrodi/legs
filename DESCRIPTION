@@ -1,11 +1,10 @@
 Package: legs
-Title: What the Package Does (One Line, Title Case)
+Title: An TUI interface for viewing R data
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Ryan", "Zomorrodi", , "rzomor2@uic.edu", role = c("aut", "cre"))
+Description: Provides an interactive terminal user interface for exploring data.frames, matricies, lists, and vectors. The interface design is highly similar to that of a 'tibble'.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Config/rextendr/version: 0.5.0
@@ -13,3 +12,5 @@ SystemRequirements: Cargo (Rust's package manager), rustc >= 1.65.0, xz
 Depends: 
     R (>= 4.2)
 Config/roxygen2/version: 8.1.0
+Imports: 
+    pillar

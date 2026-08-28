@@ -13,7 +13,7 @@ use ratatui::crossterm::{
 
 pub type CrosstermTerminal = ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>;
 
-use crate::{app::App, event::EventHandler, ui};
+use crate::{app::App, event::EventHandler};
 
 pub struct Tui {
     terminal: CrosstermTerminal,
@@ -41,7 +41,7 @@ impl Tui {
     }
 
     pub fn draw(&mut self, app: &mut App) -> Result<()> {
-        self.terminal.draw(|frame| ui::render(app, frame))?;
+        self.terminal.draw(|frame| app.view.render(frame))?;
         Ok(())
     }
 
