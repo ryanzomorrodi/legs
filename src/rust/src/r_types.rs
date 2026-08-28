@@ -16,6 +16,22 @@ impl RobjContainer {
             | RobjContainer::Vector { robj } => robj,
         }
     }
+
+    pub fn index(&self, row: usize, col: usize) -> Option<Robj> {
+        match self {
+            RobjContainer::DataFrame { robj } => robj.index(col).ok()?.index(row).ok(),
+            RobjContainer::Matrix { robj } => {
+                let n_rows = robj
+                    .get_attrib("dim")?
+                    .as_integer_slice()?
+                    .first()
+                    .copied()? as usize;
+                robj.index((col - 1) * n_rows + row).ok()
+            }
+            RobjContainer::List { robj } => robj.index(row).ok(),
+            RobjContainer::Vector { robj } => robj.index(row).ok(),
+        }
+    }
 }
 
 #[derive(Debug)]

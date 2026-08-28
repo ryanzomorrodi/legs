@@ -1,5 +1,5 @@
 Package: legs
-Title: An TUI interface for viewing R data
+Title: A TUI interface for viewing R data
 Version: 0.0.0.9000
 Authors@R: 
     person("Ryan", "Zomorrodi", , "rzomor2@uic.edu", role = c("aut", "cre"))

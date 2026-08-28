@@ -6,7 +6,6 @@ use std::{
 
 use color_eyre::Result;
 use ratatui::crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -27,7 +26,7 @@ impl Tui {
 
     pub fn enter(&mut self) -> Result<()> {
         terminal::enable_raw_mode()?;
-        execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+        execute!(io::stdout(), EnterAlternateScreen)?;
 
         let panic_hook = panic::take_hook();
         panic::set_hook(Box::new(move |panic| {
@@ -47,7 +46,7 @@ impl Tui {
 
     fn reset() -> Result<()> {
         terminal::disable_raw_mode()?;
-        execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
+        execute!(io::stdout(), LeaveAlternateScreen)?;
         Ok(())
     }
 

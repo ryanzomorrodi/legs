@@ -1,4 +1,4 @@
-use crate::r_types::{RobjContainer, UnsupportedTypeError};
+use crate::r_types::UnsupportedTypeError;
 use crate::viewer::Viewer;
 use extendr_api::prelude::*;
 
@@ -20,19 +20,7 @@ impl App {
     }
 
     fn get_cell_robj(&self, row: usize, col: usize) -> Option<Robj> {
-        match &self.view.data {
-            RobjContainer::DataFrame { robj } => robj.index(col).ok()?.index(row).ok(),
-            RobjContainer::Matrix { robj } => {
-                let n_rows = robj
-                    .get_attrib("dim")?
-                    .as_integer_slice()?
-                    .first()
-                    .copied()? as usize;
-                robj.index((col - 1) * n_rows + row).ok()
-            }
-            RobjContainer::List { robj } => robj.index(row).ok(),
-            RobjContainer::Vector { robj } => robj.index(row).ok(),
-        }
+        self.view.data.index(row, col)
     }
 
     pub fn open_nested(&mut self) {

@@ -15,6 +15,7 @@ path = 'document.rs'
 
 [dependencies]
 ansi-to-tui = "8.0.0"
+arboard = "3.3.2"
 color-eyre = "0.6.5"
 extendr-api = '0.9.0'
 ratatui = { version = "0.30.2", features = ["crossterm"] }
