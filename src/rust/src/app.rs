@@ -1,4 +1,4 @@
-use crate::r_types::UnsupportedTypeError;
+use crate::r_types::{RobjContainer, UnsupportedTypeError};
 use crate::viewer::Viewer;
 use extendr_api::prelude::*;
 
@@ -19,11 +19,21 @@ impl App {
         })
     }
 
+    pub fn get_current_num(&self) -> usize {
+        self.typed_num.unwrap_or(1)
+    }
+
     fn get_cell_robj(&self, row: usize, col: usize) -> Option<Robj> {
         self.view.data.index(row, col)
     }
 
     pub fn open_nested(&mut self) {
+        if let RobjContainer::Vector { robj: _ } = self.view.data {
+            if self.view.n_rows == 1 {
+                return;
+            }
+        }
+
         let (row, col) = self.view.selected_cell();
         let Some(cell_robj) = self.get_cell_robj(row, col) else {
             return;

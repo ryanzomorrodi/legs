@@ -3,20 +3,22 @@ use ansi_to_tui::IntoText;
 use extendr_api::prelude::*;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     text::{Line, Text},
     widgets::{Cell, Paragraph, Row, Table, TableState},
     Frame,
 };
 
 pub struct Viewer {
-    n_rows: usize,
+    pub n_rows: usize,
     n_cols: usize,
     pub data: RobjContainer,
     state: TableState,
+    truncate: bool,
     col_start_idx: usize,
     last_col_visible: bool,
-    truncate: bool,
+    pub visible_n_row: usize,
+    pub visible_n_col: usize,
 }
 
 impl Viewer {
@@ -48,23 +50,16 @@ impl Viewer {
             n_cols,
             data,
             state: TableState::default().with_selected_cell(initial_cell),
+            truncate: true,
             col_start_idx: 0,
             last_col_visible: n_cols == 0,
-            truncate: true,
+            visible_n_row: 0,
+            visible_n_col: 0,
         })
     }
 
     pub fn selected_cell(&self) -> (usize, usize) {
         self.state.selected_cell().unwrap_or((0, 0))
-    }
-
-    pub fn next_row(&mut self) {
-        if self.n_rows == 0 {
-            return;
-        }
-        let (row, col) = self.selected_cell();
-        let next_row = if row >= self.n_rows - 1 { 0 } else { row + 1 };
-        self.state.select_cell(Some((next_row, col)));
     }
 
     pub fn next_n_row(&mut self, n: usize) {
@@ -77,15 +72,6 @@ impl Viewer {
             new_row = self.n_rows - 1
         }
         self.state.select_cell(Some((new_row, col)));
-    }
-
-    pub fn previous_row(&mut self) {
-        if self.n_rows == 0 {
-            return;
-        }
-        let (row, col) = self.selected_cell();
-        let prev_row = if row == 0 { self.n_rows - 1 } else { row - 1 };
-        self.state.select_cell(Some((prev_row, col)));
     }
 
     pub fn previous_n_row(&mut self, n: usize) {
@@ -122,16 +108,6 @@ impl Viewer {
         self.state.select_cell(Some((self.n_rows - 1, col)));
     }
 
-    pub fn next_col(&mut self) {
-        if self.n_cols == 0 {
-            return;
-        }
-        let (row, col) = self.selected_cell();
-        if col < self.n_cols - 1 {
-            self.state.select_cell(Some((row, col + 1)));
-        }
-    }
-
     pub fn next_n_col(&mut self, n: usize) {
         if self.n_cols == 0 {
             return;
@@ -142,16 +118,6 @@ impl Viewer {
             new_col = self.n_cols - 1
         }
         self.state.select_cell(Some((row, new_col)));
-    }
-
-    pub fn previous_col(&mut self) {
-        if self.n_cols == 0 {
-            return;
-        }
-        let (row, col) = self.selected_cell();
-        if col > 0 {
-            self.state.select_cell(Some((row, col - 1)));
-        }
     }
 
     pub fn previous_n_col(&mut self, n: usize) {
@@ -206,6 +172,9 @@ impl Viewer {
         let col_data =
             scroll_col_window(self, &row_window, table_area.width as usize, self.truncate);
         let col_layout = build_col_layout(col_data);
+
+        self.visible_n_row = table_area.height as usize - HEADER_HEIGHT;
+        self.visible_n_col = col_layout.headers.len();
 
         render_summary_header(
             &self.data,
@@ -496,8 +465,13 @@ fn build_col_layout(col_data: Vec<ColumnData>) -> ColLayout {
     let type_style = col_data
         .first()
         .and_then(|first_col| first_col.type_text.lines.first())
-        .and_then(|first_line| first_line.spans.first())
-        .map(|first_span| first_span.style)
+        .and_then(|first_line| {
+            first_line
+                .spans
+                .iter()
+                .find(|span| span.style != Style::default())
+        })
+        .map(|span| span.style)
         .unwrap_or_else(|| Style::default().fg(Color::DarkGray));
 
     for c in col_data {
@@ -644,5 +618,5 @@ fn build_table(col_layout: ColLayout) -> Table<'static> {
 
     Table::new(rows, widths)
         .header(header_row)
-        .cell_highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .cell_highlight_style(Style::default().bg(Color::Yellow).fg(Color::Black))
 }

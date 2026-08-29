@@ -1,4 +1,11 @@
-url: ~
+url: https://ryanzomorrodi.github.io/legs/
 template:
   bootstrap: 5
+  bslib:
+    body-bg: "#babca2"
+    body-bg-dark: "#0d1117"
+    navbar-light-bg: "#7b3814"
+    navbar-dark-bg: "#8e4625"
+  light-switch: true
+
 

@@ -1,5 +1,6 @@
 use crate::app::App;
 use crate::event::{Event, EventHandler};
+use crate::print::buffer_to_ansi_string;
 use crate::tui::Tui;
 use crate::update::update;
 use extendr_api::prelude::*;
@@ -7,27 +8,14 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 
 mod app;
 mod event;
+mod print;
 mod r_types;
 mod tui;
 mod update;
 mod viewer;
 
-/// @title Invoke legs Data Viewer
-/// @description Invoke the legs terminal user interface (tui) to interactively explore R data.
-/// @param x A data.frame, matrix, list, or atomic vector
-/// @return No return value.
-/// @examples
-/// if (interactive()) {
-///   df <- data.frame(x = 1:10, y = LETTERS[1:10])
-///   view(df)
-///   view(as.matrix(df))
-///   view(as.list(df))
-///   view(df$x)
-/// }
-///
-/// @export
 #[extendr]
-fn view(x: Robj) -> Result<(), Box<dyn std::error::Error>> {
+fn visible_view(x: Robj) -> Result<Robj, Box<dyn std::error::Error>> {
     let mut app = App::new(x)?;
     let backend = CrosstermBackend::new(std::io::stdout());
     let terminal = Terminal::new(backend)?;
@@ -46,10 +34,15 @@ fn view(x: Robj) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     tui.exit()?;
-    Ok(())
+
+    let last_frame = buffer_to_ansi_string(&tui.last_frame);
+    rprintln!("{}", last_frame.trim_end_matches('\n'));
+    let last_obj = app.view.data.robj().clone();
+
+    Ok(last_obj)
 }
 
 extendr_module! {
     mod legs;
-    fn view;
+    fn visible_view;
 }

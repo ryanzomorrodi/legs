@@ -1,13 +1,11 @@
 use crate::app::App;
-use ratatui::crossterm::event::{KeyCode, KeyEvent};
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub fn update(app: &mut App, key_event: KeyEvent) {
     match key_event.code {
         KeyCode::Char('q') => app.quit(),
         KeyCode::Esc => {
-            if !app.close_nested() {
-                app.quit();
-            }
+            app.close_nested();
         }
         KeyCode::Enter => {
             app.open_nested();
@@ -19,33 +17,43 @@ pub fn update(app: &mut App, key_event: KeyEvent) {
         },
         KeyCode::Char(c) if c.is_ascii_digit() => {
             let d = c.to_digit(10).unwrap() as usize;
-            app.typed_num = Some(app.typed_num.map_or(d, |n| n * 10 + d));
+            app.typed_num = Some(
+                app.typed_num
+                    .map_or(d, |n| n.saturating_mul(10).saturating_add(d)),
+            );
             return;
         }
-        KeyCode::Char('j') | KeyCode::Down => match app.typed_num {
-            Some(n) => app.view.next_n_row(n),
-            None => app.view.next_row(),
-        },
-        KeyCode::Char('k') | KeyCode::Up => {
-            if let Some(current_num) = app.typed_num {
-                app.view.previous_n_row(current_num);
-            } else {
-                app.view.previous_row();
-            }
+        KeyCode::Char('j') | KeyCode::Down if key_event.modifiers == KeyModifiers::NONE => {
+            let n_row = app.get_current_num();
+            app.view.next_n_row(n_row);
         }
-        KeyCode::Char('l') | KeyCode::Right => {
-            if let Some(current_num) = app.typed_num {
-                app.view.next_n_col(current_num);
-            } else {
-                app.view.next_col();
-            }
+        KeyCode::Char('k') | KeyCode::Up if key_event.modifiers == KeyModifiers::NONE => {
+            let n_row = app.get_current_num();
+            app.view.previous_n_row(n_row);
         }
-        KeyCode::Char('h') | KeyCode::Left => {
-            if let Some(current_num) = app.typed_num {
-                app.view.previous_n_col(current_num);
-            } else {
-                app.view.previous_col();
-            }
+        KeyCode::Char('l') | KeyCode::Right if key_event.modifiers == KeyModifiers::NONE => {
+            let n_col = app.get_current_num();
+            app.view.next_n_col(n_col);
+        }
+        KeyCode::Char('h') | KeyCode::Left if key_event.modifiers == KeyModifiers::NONE => {
+            let n_col = app.get_current_num();
+            app.view.previous_n_col(n_col);
+        }
+        KeyCode::Char('J') | KeyCode::Down if key_event.modifiers == KeyModifiers::SHIFT => {
+            let n_row = app.get_current_num().saturating_mul(app.view.visible_n_row);
+            app.view.next_n_row(n_row)
+        }
+        KeyCode::Char('K') | KeyCode::Up if key_event.modifiers == KeyModifiers::SHIFT => {
+            let n_row = app.get_current_num().saturating_mul(app.view.visible_n_row);
+            app.view.previous_n_row(n_row)
+        }
+        KeyCode::Char('L') | KeyCode::Right if key_event.modifiers == KeyModifiers::SHIFT => {
+            let n_row = app.get_current_num().saturating_mul(app.view.visible_n_col);
+            app.view.next_n_col(n_row)
+        }
+        KeyCode::Char('H') | KeyCode::Left if key_event.modifiers == KeyModifiers::SHIFT => {
+            let n_row = app.get_current_num().saturating_mul(app.view.visible_n_col);
+            app.view.previous_n_col(n_row)
         }
         KeyCode::Char('^') => app.view.first_column(),
         KeyCode::Char('$') => app.view.last_column(),
