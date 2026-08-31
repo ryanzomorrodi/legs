@@ -1,4 +1,4 @@
-# legs
+# legs <a href="https://ryanzomorrodi.github.io/legs/"><img src="man/figures/logo.png" align="right" height="120" alt="legs website" /></a>
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/ryanzomorrodi/legs/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/ryanzomorrodi/legs/actions/workflows/R-CMD-check.yaml)
