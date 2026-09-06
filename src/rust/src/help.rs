@@ -11,6 +11,8 @@ const KEYBINDINGS: &[(&str, &str)] = &[
     ("HJKL (or Shift + ← ↓ ↑ →)", "Page over"),
     ("g", "Select top row"),
     ("<n>G", "Select bottom row (or <n> row)"),
+    ("^", "Select first column"),
+    ("$", "Select last column"),
     (
         "<n>t",
         "Toggle truncation (or set truncation to <n> characters)",
