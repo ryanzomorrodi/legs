@@ -27,14 +27,12 @@ const KEYBINDINGS: &[(&str, &str)] = &[
 pub fn render_help(frame: &mut Frame) {
     let area = centered_rect(90, 90, frame.area());
     frame.render_widget(Clear, area);
-
     let block = Block::default()
         .title(" Keybindings (esc to close) ")
         .borders(Borders::ALL)
         .style(Style::default().fg(Color::White));
     let inner = block.inner(area);
     frame.render_widget(block, area);
-
     // Split into two columns with a 1-cell gap between them.
     let columns = Layout::default()
         .direction(Direction::Horizontal)
@@ -45,10 +43,8 @@ pub fn render_help(frame: &mut Frame) {
         ])
         .split(inner);
     let (left_area, right_area) = (columns[0], columns[2]);
-
-    let split_at = KEYBINDINGS.len().div_ceil(2);
+    let split_at = (KEYBINDINGS.len() + 1) / 2;
     let (left_bindings, right_bindings) = KEYBINDINGS.split_at(split_at);
-
     frame.render_widget(bindings_paragraph(left_bindings), left_area);
     frame.render_widget(bindings_paragraph(right_bindings), right_area);
 }
