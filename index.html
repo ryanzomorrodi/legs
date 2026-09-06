@@ -82,10 +82,6 @@
 <p><img src="reference/figures/explore.gif"></p>
 <p>Navigate the terminal with the following key bindings:</p>
 <table class="table">
-<colgroup>
-<col width="50%">
-<col width="50%">
-</colgroup>
 <thead><tr>
 <th>Key</th>
 <th>Action</th>
@@ -94,32 +90,32 @@
 <tr>
 <td>
 <code>hjkl</code> (or <code>← ↓ ↑ →</code>)</td>
-<td>Scroll one row or column in the given direction</td>
+<td>Move cursor</td>
 </tr>
 <tr>
 <td>
 <code>HJKL</code> (or <code>Shift + ← ↓ ↑ →</code>)</td>
-<td>Scroll one window in the given direction</td>
-</tr>
-<tr>
-<td><code>$</code></td>
-<td>Scroll to last column</td>
-</tr>
-<tr>
-<td><code>^</code></td>
-<td>Scroll to first column</td>
-</tr>
-<tr>
-<td><code>G</code></td>
-<td>Scroll to bottom</td>
-</tr>
-<tr>
-<td><code>&lt;n&gt;G</code></td>
-<td>Scroll to <code>&lt;n&gt;</code> row</td>
+<td>Page over</td>
 </tr>
 <tr>
 <td><code>g</code></td>
-<td>Scroll to top</td>
+<td>Select top row</td>
+</tr>
+<tr>
+<td><code>&lt;n&gt;G</code></td>
+<td>Select bottom row (or <code>&lt;n&gt;</code> row)</td>
+</tr>
+<tr>
+<td><code>^</code></td>
+<td>Select first column</td>
+</tr>
+<tr>
+<td><code>$</code></td>
+<td>Select last column</td>
+</tr>
+<tr>
+<td><code>&lt;n&gt;t</code></td>
+<td>Toggle truncation (or set truncation to <code>&lt;n&gt;</code> characters)</td>
 </tr>
 <tr>
 <td><code>Enter</code></td>
@@ -130,8 +126,12 @@
 <td>View the parent data structure</td>
 </tr>
 <tr>
-<td><code>t</code></td>
-<td>Toggle cell width truncation</td>
+<td><code>y</code></td>
+<td>Yank (copy) selected cell</td>
+</tr>
+<tr>
+<td><code>?</code></td>
+<td>View this help screen</td>
 </tr>
 <tr>
 <td><code>q</code></td>

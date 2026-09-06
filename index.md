@@ -27,16 +27,17 @@ Navigate the terminal with the following key bindings:
 
 | Key | Action |
 |----|----|
-| `hjkl` (or `← ↓ ↑ →`) | Scroll one row or column in the given direction |
-| `HJKL` (or `Shift + ← ↓ ↑ →`) | Scroll one window in the given direction |
-| `$` | Scroll to last column |
-| `^` | Scroll to first column |
-| `G` | Scroll to bottom |
-| `<n>G` | Scroll to `<n>` row |
-| `g` | Scroll to top |
+| `hjkl` (or `← ↓ ↑ →`) | Move cursor |
+| `HJKL` (or `Shift + ← ↓ ↑ →`) | Page over |
+| `g` | Select top row |
+| `<n>G` | Select bottom row (or `<n>` row) |
+| `^` | Select first column |
+| `$` | Select last column |
+| `<n>t` | Toggle truncation (or set truncation to `<n>` characters) |
 | `Enter` | View the cell highlighted |
 | `esc` | View the parent data structure |
-| `t` | Toggle cell width truncation |
+| `y` | Yank (copy) selected cell |
+| `?` | View this help screen |
 | `q` | Exit |
 
 All scroll movement key bindings can also be prefixed with a number to
