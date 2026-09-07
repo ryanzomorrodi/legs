@@ -7,6 +7,7 @@ use crate::{
 };
 use extendr_api::prelude::*;
 use ratatui::{backend::CrosstermBackend, Terminal};
+
 mod app;
 mod col_layout;
 mod event;
@@ -20,8 +21,23 @@ mod tui;
 mod update;
 mod viewer;
 mod yank;
-#[extendr]
-fn visible_view(x: Robj) -> Result<Robj, Box<dyn std::error::Error>> {
+
+/// @title Invoke legs Data Viewer
+/// @description Invoke the legs terminal user interface (tui) to interactively explore R data.
+/// @param x A data.frame, matrix, list, or atomic vector
+/// @return The last viewed item
+/// @examples
+/// if (interactive()) {
+///   df <- data.frame(x = 1:10, y = LETTERS[1:10])
+///   view(df)
+///   view(as.matrix(df))
+///   view(as.list(df))
+///   view(df$x)
+/// }
+///
+/// @export
+#[extendr(invisible)]
+fn view(x: Robj) -> Result<Robj, Box<dyn std::error::Error>> {
     if !is_viewable(&x) {
         return Err(
             "object is not viewable: expected a data.frame, matrix, array, list, or vector".into(),
@@ -54,10 +70,12 @@ fn visible_view(x: Robj) -> Result<Robj, Box<dyn std::error::Error>> {
     rprintln!("{}", last_frame.trim_end_matches('\n'));
     Ok(app.view.data)
 }
+
 fn is_viewable(x: &Robj) -> bool {
     x.is_frame() || x.is_list() || x.is_vector() || x.is_matrix() || x.is_array()
 }
+
 extendr_module! {
     mod legs;
-    fn visible_view;
+    fn view;
 }
