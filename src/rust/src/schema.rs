@@ -17,52 +17,52 @@ fn total_pillar_cols(col: &RColumn) -> usize {
     }
 }
 
-fn matrix_child_names(x: &Robj, ncols: usize) -> Vec<String> {
-    let colnames = R!("colnames({{x}})").expect("colnames call failed");
+fn matrix_child_names(x: &Robj, ncols: usize) -> extendr_api::Result<Vec<String>> {
+    let colnames = R!("colnames({{x}})")?;
     if let Some(names) = colnames.as_str_vector() {
         if names.len() == ncols {
-            return names.iter().map(|n| format!("[, \"{}\"]", n)).collect();
+            return Ok(names.iter().map(|n| format!("[, \"{}\"]", n)).collect());
         }
     }
-    (0..ncols).map(|j| format!("[, {}]", j + 1)).collect()
+    Ok((0..ncols).map(|j| format!("[, {}]", j + 1)).collect())
 }
 
-fn build_schema(x: &Robj, is_root: bool) -> RColumn {
+fn build_schema(x: &Robj, is_root: bool) -> extendr_api::Result<RColumn> {
     if x.is_frame() {
-        let list = x.as_list().expect("data.frame should coerce to List");
-        let children: Vec<(String, RColumn)> = list
-            .iter()
-            .map(|(name, child)| {
-                let label = if is_root {
-                    name.to_string()
-                } else {
-                    format!("${}", name)
-                };
-                (label, build_schema(&child, false))
-            })
-            .collect();
+        let list = x.as_list().ok_or_else(|| {
+            Error::Other("internal error: data.frame should coerce to a list".to_string())
+        })?;
+        let mut children: Vec<(String, RColumn)> = Vec::with_capacity(list.len());
+        for (name, child) in list.iter() {
+            let label = if is_root {
+                name.to_string()
+            } else {
+                format!("${}", name)
+            };
+            children.push((label, build_schema(&child, false)?));
+        }
         let ncols = children.iter().map(|(_, c)| total_pillar_cols(c)).sum();
-        RColumn::Packed { ncols, children }
+        Ok(RColumn::Packed { ncols, children })
     } else if x.is_matrix() {
         let ncols = x.ncols();
-        let children = matrix_child_names(x, ncols)
+        let children = matrix_child_names(x, ncols)?
             .into_iter()
             .map(|n| (n, RColumn::Flat))
             .collect();
-        RColumn::Packed { ncols, children }
+        Ok(RColumn::Packed { ncols, children })
     } else {
-        RColumn::Flat
+        Ok(RColumn::Flat)
     }
 }
 
-fn root_children(x: &Robj) -> Vec<(String, RColumn)> {
-    match build_schema(x, true) {
-        RColumn::Packed { children, .. } => children,
-        RColumn::Flat => vec![(String::new(), RColumn::Flat)],
+fn root_children(x: &Robj) -> extendr_api::Result<Vec<(String, RColumn)>> {
+    match build_schema(x, true)? {
+        RColumn::Packed { children, .. } => Ok(children),
+        RColumn::Flat => Ok(vec![(String::new(), RColumn::Flat)]),
     }
 }
 
-fn slice_rows(col: &Robj, rows: Range<usize>) -> Robj {
+fn slice_rows(col: &Robj, rows: Range<usize>) -> extendr_api::Result<Robj> {
     match col.dim() {
         Some(dim) if dim.len() > 1 => slice_array_rows(col, rows),
         _ => {
@@ -70,14 +70,22 @@ fn slice_rows(col: &Robj, rows: Range<usize>) -> Robj {
                 .map(|idx| (idx + 1) as i32)
                 .collect::<Integers>()
                 .into();
-            col.slice(indices).expect("row slice failed")
+            col.slice(indices)
         }
     }
 }
 
-fn slice_array_rows(x: &Robj, rows: Range<usize>) -> Robj {
-    let dim = x.dim().unwrap().as_robj().as_integer_vector().unwrap();
-    let nrow = dim[0] as usize;
+fn slice_array_rows(x: &Robj, rows: Range<usize>) -> extendr_api::Result<Robj> {
+    let dim_robj = x.dim().ok_or_else(|| {
+        Error::Other("internal error: expected an array with a dim attribute".to_string())
+    })?;
+    let dim = dim_robj.as_robj().as_integer_vector().ok_or_else(|| {
+        Error::Other("internal error: array dim attribute was not an integer vector".to_string())
+    })?;
+    let nrow = *dim
+        .first()
+        .ok_or_else(|| Error::Other("internal error: array dim attribute was empty".to_string()))?
+        as usize;
     let n_chunks: usize = dim[1..].iter().map(|&d| d as usize).product();
     let chunk_len = rows.len();
 
@@ -88,43 +96,50 @@ fn slice_array_rows(x: &Robj, rows: Range<usize>) -> Robj {
     }
     let idx: Robj = indices.into_iter().collect::<Integers>().into();
 
-    let mut sliced = x.slice(idx).expect("array row slice failed");
+    let mut sliced = x.slice(idx)?;
     let mut new_dim = dim;
     new_dim[0] = chunk_len as i32;
-    sliced
-        .set_attrib("dim", new_dim)
-        .expect("failed to set dim");
+    sliced.set_attrib("dim", new_dim)?;
 
     if let Some(dimnames) = x.get_attrib("dimnames") {
         if let Some(list) = dimnames.as_list() {
-            let new_dimnames: Vec<Robj> = list
-                .iter()
-                .enumerate()
-                .map(|(i, (_, names))| {
-                    if i == 0 {
-                        slice_dim_names(names, &rows)
-                    } else {
-                        names
-                    }
-                })
-                .collect();
-            sliced
-                .set_attrib("dimnames", List::from_values(new_dimnames))
-                .expect("failed to set dimnames");
+            let mut new_dimnames: Vec<Robj> = Vec::with_capacity(list.len());
+            for (i, (_, names)) in list.iter().enumerate() {
+                if i == 0 {
+                    new_dimnames.push(slice_dim_names(names, &rows)?);
+                } else {
+                    new_dimnames.push(names);
+                }
+            }
+            sliced.set_attrib("dimnames", List::from_values(new_dimnames))?;
         }
     }
 
-    sliced
+    Ok(sliced)
 }
 
-fn slice_dim_names(names: Robj, rows: &Range<usize>) -> Robj {
+fn slice_dim_names(names: Robj, rows: &Range<usize>) -> extendr_api::Result<Robj> {
     match names.as_str_vector() {
-        Some(strs) => rows.clone().map(|i| strs[i]).collect::<Strings>().into(),
-        None => names,
+        Some(strs) => {
+            let mut out = Vec::with_capacity(rows.len());
+            for i in rows.clone() {
+                let s = strs.get(i).ok_or_else(|| {
+                    Error::Other("internal error: row index out of range for dimnames".to_string())
+                })?;
+                out.push(*s);
+            }
+            Ok(out.into_iter().collect::<Strings>().into())
+        }
+        None => Ok(names),
     }
 }
 
-fn matrix_col_rows(x: &Robj, col_idx: usize, nrow: usize, rows: Option<Range<usize>>) -> Robj {
+fn matrix_col_rows(
+    x: &Robj,
+    col_idx: usize,
+    nrow: usize,
+    rows: Option<Range<usize>>,
+) -> extendr_api::Result<Robj> {
     let (start, end) = match rows {
         Some(r) => (r.start, r.end),
         None => (0, nrow),
@@ -134,36 +149,50 @@ fn matrix_col_rows(x: &Robj, col_idx: usize, nrow: usize, rows: Option<Range<usi
         .map(|i| i as i32)
         .collect::<Integers>()
         .into();
-    x.slice(indices).expect("matrix column/row slice failed")
+    x.slice(indices)
 }
 
-fn get_value(x: &Robj, path: &[usize], rows: Option<Range<usize>>) -> Robj {
+fn get_value(x: &Robj, path: &[usize], rows: Option<Range<usize>>) -> extendr_api::Result<Robj> {
     let Some((&first, rest)) = path.split_first() else {
         return match rows {
             Some(r) => slice_rows(x, r),
-            None => x.clone(),
+            None => Ok(x.clone()),
         };
     };
 
     if x.is_frame() {
         let elt = x
             .as_list()
-            .expect("expected list-like Robj")
-            .elt(first)
-            .expect("index out of range");
+            .ok_or_else(|| Error::Other("internal error: expected a list-like object".to_string()))?
+            .elt(first)?;
         get_value(&elt, rest, rows)
     } else if x.is_matrix() {
-        debug_assert!(
-            rest.is_empty(),
-            "matrix pillar should not have further path"
-        );
-        let nrow = x.dim().unwrap().as_robj().as_integer_vector().unwrap()[0] as usize;
+        if !rest.is_empty() {
+            return Err(Error::Other(
+                "internal error: matrix pillar should not have a further path".to_string(),
+            ));
+        }
+        let dim_robj = x.dim().ok_or_else(|| {
+            Error::Other("internal error: expected a matrix with a dim attribute".to_string())
+        })?;
+        let dim = dim_robj.as_robj().as_integer_vector().ok_or_else(|| {
+            Error::Other(
+                "internal error: matrix dim attribute was not an integer vector".to_string(),
+            )
+        })?;
+        let nrow = *dim.first().ok_or_else(|| {
+            Error::Other("internal error: matrix dim attribute was empty".to_string())
+        })? as usize;
         matrix_col_rows(x, first, nrow, rows)
     } else {
-        debug_assert!(rest.is_empty(), "flat pillar should not have further path");
+        if !rest.is_empty() {
+            return Err(Error::Other(
+                "internal error: flat pillar should not have a further path".to_string(),
+            ));
+        }
         match rows {
             Some(r) => slice_rows(x, r),
-            None => x.clone(),
+            None => Ok(x.clone()),
         }
     }
 }
@@ -203,7 +232,7 @@ fn resolve_pillars(children: &[(String, RColumn)]) -> Vec<Pillar> {
         let full_display_path = segs.concat();
         let parent = path[..path.len() - 1].to_vec();
         let display_path = if last_parent.as_deref() == Some(parent.as_slice()) {
-            segs.last().cloned().unwrap()
+            segs.last().cloned().unwrap_or_default()
         } else {
             full_display_path.clone()
         };
@@ -223,12 +252,12 @@ pub struct RSchema {
 }
 
 impl RSchema {
-    pub fn build(x: &Robj) -> Self {
-        let nrow = nrow(x);
-        RSchema {
-            pillars: resolve_pillars(&root_children(x)),
+    pub fn build(x: &Robj) -> extendr_api::Result<Self> {
+        let nrow = nrow(x)?;
+        Ok(RSchema {
+            pillars: resolve_pillars(&root_children(x)?),
             nrow,
-        }
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -243,13 +272,22 @@ impl RSchema {
         self.pillars.get(idx).map(|p| p.full_display_path.as_str())
     }
 
-    pub fn cell(&self, x: &Robj, row: usize, col: usize) -> Robj {
-        let pillar = &self.pillars[col];
-        let value = get_value(x, &pillar.path, Some(row..row + 1));
+    pub fn cell(&self, x: &Robj, row: usize, col: usize) -> extendr_api::Result<Robj> {
+        let pillar = self.pillars.get(col).ok_or_else(|| {
+            Error::Other(format!("internal error: column index {col} out of range"))
+        })?;
+        let value = get_value(x, &pillar.path, Some(row..row + 1))?;
         if value.is_list() {
-            value.index(1).unwrap()
+            value.index(1)
         } else if value.is_array() {
-            let n_dims = value.dim().unwrap().len();
+            let n_dims = value
+                .dim()
+                .ok_or_else(|| {
+                    Error::Other(
+                        "internal error: expected an array with a dim attribute".to_string(),
+                    )
+                })?
+                .len();
             let idx = 1;
             let commas = ",".repeat(n_dims.saturating_sub(1));
             let code = format!("value[{}{}]", idx, commas);
@@ -260,9 +298,8 @@ impl RSchema {
                     eval(parse(text = {{code}}))
                 })
             "#)
-            .unwrap()
         } else {
-            value
+            Ok(value)
         }
     }
 
@@ -271,21 +308,33 @@ impl RSchema {
         x: &'a Robj,
         idx: usize,
         rows: Option<Range<usize>>,
-    ) -> (&'a str, Robj) {
-        let pillar = &self.pillars[idx];
-        (
-            pillar.display_path.as_str(),
-            get_value(x, &pillar.path, rows),
-        )
+    ) -> extendr_api::Result<(&'a str, Robj)> {
+        let pillar = self.pillars.get(idx).ok_or_else(|| {
+            Error::Other(format!("internal error: column index {idx} out of range"))
+        })?;
+        let value = get_value(x, &pillar.path, rows)?;
+        Ok((pillar.display_path.as_str(), value))
     }
 }
 
-pub fn nrow(x: &Robj) -> usize {
+pub fn nrow(x: &Robj) -> extendr_api::Result<usize> {
     if x.is_frame() {
-        x.get_attrib("row.names").unwrap().len()
+        let row_names = x.get_attrib("row.names").ok_or_else(|| {
+            Error::Other("internal error: data.frame is missing row.names".to_string())
+        })?;
+        Ok(row_names.len())
     } else if x.is_matrix() || x.is_array() {
-        x.dim().unwrap().as_robj().as_integer_vector().unwrap()[0] as usize
+        let dim_robj = x.dim().ok_or_else(|| {
+            Error::Other("internal error: expected a matrix/array with a dim attribute".to_string())
+        })?;
+        let dim = dim_robj.as_robj().as_integer_vector().ok_or_else(|| {
+            Error::Other("internal error: dim attribute was not an integer vector".to_string())
+        })?;
+        let first = *dim
+            .first()
+            .ok_or_else(|| Error::Other("internal error: dim attribute was empty".to_string()))?;
+        Ok(first as usize)
     } else {
-        x.len()
+        Ok(x.len())
     }
 }

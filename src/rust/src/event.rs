@@ -1,3 +1,4 @@
+use ratatui::crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -7,10 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use color_eyre::Result;
-use ratatui::crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Event {
     Tick,
     Key(KeyEvent),
@@ -18,6 +16,7 @@ pub enum Event {
     Mouse(MouseEvent),
     #[allow(dead_code)]
     Resize(u16, u16),
+    Error(String),
 }
 
 #[derive(Debug)]
@@ -32,7 +31,6 @@ impl EventHandler {
         let tick_rate = Duration::from_millis(tick_rate);
         let (sender, receiver) = mpsc::channel();
         let running = Arc::new(AtomicBool::new(true));
-
         let running_clone = Arc::clone(&running);
         let handler = thread::spawn(move || {
             let mut last_tick = Instant::now();
@@ -42,27 +40,38 @@ impl EventHandler {
                     .unwrap_or(tick_rate)
                     .min(Duration::from_millis(50));
 
-                if event::poll(timeout).expect("unable to poll for event") {
-                    match event::read().expect("unable to read event") {
-                        CrosstermEvent::Key(e) => {
+                match event::poll(timeout) {
+                    Ok(true) => match event::read() {
+                        Ok(CrosstermEvent::Key(e)) => {
                             if e.kind == event::KeyEventKind::Press
                                 && sender.send(Event::Key(e)).is_err()
                             {
                                 break;
                             }
                         }
-                        CrosstermEvent::Mouse(e) => {
+                        Ok(CrosstermEvent::Mouse(e)) => {
                             if sender.send(Event::Mouse(e)).is_err() {
                                 break;
                             }
                         }
-                        CrosstermEvent::Resize(w, h)
-                            if sender.send(Event::Resize(w, h)).is_err() =>
-                        {
+                        Ok(CrosstermEvent::Resize(w, h)) => {
+                            if sender.send(Event::Resize(w, h)).is_err() {
+                                break;
+                            }
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            let _ = sender
+                                .send(Event::Error(format!("unable to read terminal event: {e}")));
                             break;
                         }
-
-                        _ => {}
+                    },
+                    Ok(false) => {}
+                    Err(e) => {
+                        let _ = sender.send(Event::Error(format!(
+                            "unable to poll for terminal event: {e}"
+                        )));
+                        break;
                     }
                 }
 
@@ -74,7 +83,6 @@ impl EventHandler {
                 }
             }
         });
-
         Self {
             receiver,
             running,
@@ -82,15 +90,13 @@ impl EventHandler {
         }
     }
 
-    pub fn next(&self) -> Result<Event> {
-        Ok(self.receiver.recv_timeout(Duration::from_millis(100))?)
+    pub fn next(&self) -> Result<Event, mpsc::RecvTimeoutError> {
+        self.receiver.recv_timeout(Duration::from_millis(100))
     }
 
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::Relaxed);
-
         while self.receiver.try_recv().is_ok() {}
-
         if let Some(handle) = self.handler.take() {
             let _ = handle.join();
         }

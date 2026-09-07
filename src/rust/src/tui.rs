@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use extendr_api::Error;
 use ratatui::{
     buffer::Buffer,
     crossterm::{
@@ -22,6 +22,10 @@ pub struct Tui {
     pub last_frame: Buffer,
 }
 
+fn io_err(e: std::io::Error) -> Error {
+    Error::Other(e.to_string())
+}
+
 impl Tui {
     pub fn new(terminal: CrosstermTerminal, events: EventHandler) -> Self {
         Self {
@@ -30,42 +34,52 @@ impl Tui {
             last_frame: Buffer::empty(Rect::default()),
         }
     }
-    pub fn enter(&mut self) -> Result<()> {
-        terminal::enable_raw_mode()?;
-        execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+
+    pub fn enter(&mut self) -> extendr_api::Result<()> {
+        terminal::enable_raw_mode().map_err(io_err)?;
+        execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture).map_err(io_err)?;
         let panic_hook = panic::take_hook();
         panic::set_hook(Box::new(move |panic| {
-            Self::reset().expect("failed to reset the terminal");
+            if let Err(e) = Self::reset() {
+                eprintln!("failed to reset the terminal after panic: {e}");
+            }
             panic_hook(panic);
         }));
-        self.terminal.hide_cursor()?;
-        self.terminal.clear()?;
+        self.terminal.hide_cursor().map_err(io_err)?;
+        self.terminal.clear().map_err(io_err)?;
         Ok(())
     }
-    pub fn draw(&mut self, app: &mut App) -> Result<()> {
+
+    pub fn draw(&mut self, app: &mut App) -> extendr_api::Result<()> {
         let mut captured = None;
-        self.terminal.draw(|frame| {
-            app.view.render(frame);
-            if app.show_help {
-                crate::help::render_help(frame);
-            }
-            captured = Some(frame.buffer_mut().clone());
-        })?;
+        let mut render_result = Ok(());
+        self.terminal
+            .draw(|frame| {
+                render_result = app.view.render(frame);
+                if render_result.is_ok() && app.show_help {
+                    crate::help::render_help(frame);
+                }
+                captured = Some(frame.buffer_mut().clone());
+            })
+            .map_err(io_err)?;
+        render_result?;
         if let Some(buf) = captured {
             self.last_frame = buf;
         }
         Ok(())
     }
-    fn reset() -> Result<()> {
+
+    fn reset() -> Result<(), std::io::Error> {
         terminal::disable_raw_mode()?;
         execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
         Ok(())
     }
-    pub fn exit(&mut self) -> Result<()> {
+
+    pub fn exit(&mut self) -> extendr_api::Result<()> {
         self.events.stop();
         thread::sleep(Duration::from_millis(50));
-        Self::reset()?;
-        self.terminal.show_cursor()?;
+        Self::reset().map_err(io_err)?;
+        self.terminal.show_cursor().map_err(io_err)?;
         let _ = io::stdout().flush();
         Ok(())
     }

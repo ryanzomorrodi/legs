@@ -33,7 +33,6 @@ pub fn render_help(frame: &mut Frame) {
         .style(Style::default().fg(Color::White));
     let inner = block.inner(area);
     frame.render_widget(block, area);
-    // Split into two columns with a 1-cell gap between them.
     let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([

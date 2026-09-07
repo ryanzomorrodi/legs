@@ -13,20 +13,29 @@ struct ColEntry {
 }
 
 impl ColEntry {
-    fn new(idx: usize, name: &str, truncate: Option<usize>, robj: Robj) -> Self {
+    fn new(
+        idx: usize,
+        name: &str,
+        truncate: Option<usize>,
+        robj: Robj,
+    ) -> extendr_api::Result<Self> {
         let col_name = if name.is_empty() { None } else { Some(name) };
-        let table_col = format_col(col_name, truncate, robj.clone());
-        Self {
+        let table_col = format_col(col_name, truncate, robj.clone())?;
+        Ok(Self {
             idx,
             table_col,
             robj,
-        }
+        })
     }
 
-    fn full_path_width(&self, schema: &RSchema) -> usize {
-        self.table_col
-            .width
-            .max(schema.full_name(self.idx).unwrap().len())
+    fn full_path_width(&self, schema: &RSchema) -> extendr_api::Result<usize> {
+        let full_name = schema.full_name(self.idx).ok_or_else(|| {
+            Error::Other(format!(
+                "internal error: no column name for index {}",
+                self.idx
+            ))
+        })?;
+        Ok(self.table_col.width.max(full_name.len()))
     }
 }
 
@@ -45,7 +54,7 @@ pub fn build_column_layout(
     col_start_from_start: bool,
     viewable_width: usize,
     truncate: Option<usize>,
-) -> ColumnLayout {
+) -> extendr_api::Result<ColumnLayout> {
     let entries = select_visible_columns(
         schema,
         data,
@@ -54,7 +63,7 @@ pub fn build_column_layout(
         col_start_from_start,
         viewable_width,
         truncate,
-    );
+    )?;
     let col_range = match (entries.front(), entries.back()) {
         (Some(first), Some(last)) => first.idx..(last.idx + 1),
         _ => 0..0,
@@ -72,12 +81,12 @@ pub fn build_column_layout(
         values.push(entry.table_col.values_text);
         widths.push(entry.table_col.width);
     }
-    ColumnLayout {
+    Ok(ColumnLayout {
         headers,
         values,
         widths,
         col_range,
-    }
+    })
 }
 
 fn select_visible_columns(
@@ -88,10 +97,10 @@ fn select_visible_columns(
     col_start_from_start: bool,
     viewable_width: usize,
     truncate: Option<usize>,
-) -> VecDeque<ColEntry> {
+) -> extendr_api::Result<VecDeque<ColEntry>> {
     let ncols = schema.len();
     if ncols == 0 {
-        return VecDeque::new();
+        return Ok(VecDeque::new());
     }
     let mut entries = if col_start_from_start {
         let anchor = col_range.start.min(ncols - 1);
@@ -102,7 +111,7 @@ fn select_visible_columns(
             anchor,
             viewable_width,
             truncate,
-        )
+        )?
     } else {
         let anchor = col_range.end.min(ncols - 1);
         fill_left_from(
@@ -112,7 +121,7 @@ fn select_visible_columns(
             anchor,
             viewable_width,
             truncate,
-        )
+        )?
     };
     if col_start_from_start {
         extend_left(
@@ -122,7 +131,7 @@ fn select_visible_columns(
             viewable_width,
             truncate,
             &mut entries,
-        );
+        )?;
     } else {
         extend_right(
             schema,
@@ -131,10 +140,10 @@ fn select_visible_columns(
             viewable_width,
             truncate,
             &mut entries,
-        );
+        )?;
     }
-    finalize_leftmost_header(schema, truncate, &mut entries);
-    entries
+    finalize_leftmost_header(schema, truncate, &mut entries)?;
+    Ok(entries)
 }
 
 fn fill_right_from(
@@ -144,22 +153,22 @@ fn fill_right_from(
     anchor_idx: usize,
     viewable_width: usize,
     truncate: Option<usize>,
-) -> VecDeque<ColEntry> {
+) -> extendr_api::Result<VecDeque<ColEntry>> {
     let mut entries = VecDeque::new();
     let ncols = schema.len();
     if anchor_idx >= ncols {
-        return entries;
+        return Ok(entries);
     }
 
-    let (name, robj) = schema.column_at(data, anchor_idx, Some(row_window.clone()));
-    let anchor = ColEntry::new(anchor_idx, name, truncate, robj);
-    let leftmost_reserved_width = anchor.full_path_width(schema);
+    let (name, robj) = schema.column_at(data, anchor_idx, Some(row_window.clone()))?;
+    let anchor = ColEntry::new(anchor_idx, name, truncate, robj)?;
+    let leftmost_reserved_width = anchor.full_path_width(schema)?;
     entries.push_back(anchor);
 
     let mut used_width = 0usize;
     for idx in (anchor_idx + 1)..ncols {
-        let (name, robj) = schema.column_at(data, idx, Some(row_window.clone()));
-        let entry = ColEntry::new(idx, name, truncate, robj);
+        let (name, robj) = schema.column_at(data, idx, Some(row_window.clone()))?;
+        let entry = ColEntry::new(idx, name, truncate, robj)?;
         let candidate_width = used_width + leftmost_reserved_width + entry.table_col.width + 1;
         if candidate_width > viewable_width {
             break;
@@ -168,7 +177,7 @@ fn fill_right_from(
         entries.push_back(entry);
     }
 
-    entries
+    Ok(entries)
 }
 
 fn fill_left_from(
@@ -178,18 +187,18 @@ fn fill_left_from(
     anchor_idx: usize,
     viewable_width: usize,
     truncate: Option<usize>,
-) -> VecDeque<ColEntry> {
+) -> extendr_api::Result<VecDeque<ColEntry>> {
     let mut entries = VecDeque::new();
 
-    let (name, robj) = schema.column_at(data, anchor_idx, Some(row_window.clone()));
-    let anchor = ColEntry::new(anchor_idx, name, truncate, robj);
+    let (name, robj) = schema.column_at(data, anchor_idx, Some(row_window.clone()))?;
+    let anchor = ColEntry::new(anchor_idx, name, truncate, robj)?;
     let mut used_width = anchor.table_col.width + 1;
     entries.push_back(anchor);
 
     for idx in (0..anchor_idx).rev() {
-        let (name, robj) = schema.column_at(data, idx, Some(row_window.clone()));
-        let entry = ColEntry::new(idx, name, truncate, robj);
-        let reserved_width = entry.full_path_width(schema);
+        let (name, robj) = schema.column_at(data, idx, Some(row_window.clone()))?;
+        let entry = ColEntry::new(idx, name, truncate, robj)?;
+        let reserved_width = entry.full_path_width(schema)?;
         let candidate_width = used_width + reserved_width + 1;
         if candidate_width > viewable_width {
             break;
@@ -198,7 +207,7 @@ fn fill_left_from(
         entries.push_front(entry);
     }
 
-    entries
+    Ok(entries)
 }
 
 fn extend_left(
@@ -208,14 +217,14 @@ fn extend_left(
     viewable_width: usize,
     truncate: Option<usize>,
     entries: &mut VecDeque<ColEntry>,
-) {
+) -> extendr_api::Result<()> {
     let first_idx = entries.front().map(|entry| entry.idx).unwrap_or(0);
     let mut used_width: usize = total_width(entries);
 
     for idx in (0..first_idx).rev() {
-        let (name, robj) = schema.column_at(data, idx, Some(row_window.clone()));
-        let entry = ColEntry::new(idx, name, truncate, robj);
-        let reserved_width = entry.full_path_width(schema);
+        let (name, robj) = schema.column_at(data, idx, Some(row_window.clone()))?;
+        let entry = ColEntry::new(idx, name, truncate, robj)?;
+        let reserved_width = entry.full_path_width(schema)?;
         let candidate_width = used_width + reserved_width + 1;
         if candidate_width > viewable_width {
             break;
@@ -223,6 +232,8 @@ fn extend_left(
         used_width += entry.table_col.width + 1;
         entries.push_front(entry);
     }
+
+    Ok(())
 }
 
 fn extend_right(
@@ -232,13 +243,13 @@ fn extend_right(
     viewable_width: usize,
     truncate: Option<usize>,
     entries: &mut VecDeque<ColEntry>,
-) {
+) -> extendr_api::Result<()> {
     let last_idx = entries.back().map(|entry| entry.idx).unwrap_or(0);
     let mut used_width: usize = total_width(entries);
 
     for idx in (last_idx + 1)..schema.len() {
-        let (name, robj) = schema.column_at(data, idx, Some(row_window.clone()));
-        let entry = ColEntry::new(idx, name, truncate, robj);
+        let (name, robj) = schema.column_at(data, idx, Some(row_window.clone()))?;
+        let entry = ColEntry::new(idx, name, truncate, robj)?;
         let candidate_width = used_width + entry.table_col.width + 1;
         if candidate_width > viewable_width {
             break;
@@ -246,6 +257,8 @@ fn extend_right(
         used_width += entry.table_col.width + 1;
         entries.push_back(entry);
     }
+
+    Ok(())
 }
 
 fn total_width(entries: &VecDeque<ColEntry>) -> usize {
@@ -262,9 +275,9 @@ fn finalize_leftmost_header(
     schema: &RSchema,
     truncate: Option<usize>,
     entries: &mut VecDeque<ColEntry>,
-) {
+) -> extendr_api::Result<()> {
     let Some(leftmost) = entries.front_mut() else {
-        return;
+        return Ok(());
     };
     if let Some(full_name) = schema.full_name(leftmost.idx) {
         let col_name = if full_name.is_empty() {
@@ -272,8 +285,9 @@ fn finalize_leftmost_header(
         } else {
             Some(full_name)
         };
-        let mut table_col = format_col(col_name, truncate, leftmost.robj.clone());
+        let mut table_col = format_col(col_name, truncate, leftmost.robj.clone())?;
         table_col.width = table_col.width.max(full_name.len());
         leftmost.table_col = table_col;
     }
+    Ok(())
 }

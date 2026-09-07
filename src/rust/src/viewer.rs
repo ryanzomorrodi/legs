@@ -31,16 +31,14 @@ pub struct Viewer {
 }
 
 impl Viewer {
-    pub fn new(x: Robj) -> Self {
-        let schema = RSchema::build(&x);
-
+    pub fn new(x: Robj) -> extendr_api::Result<Self> {
+        let schema = RSchema::build(&x)?;
         let initial_cell = if schema.nrow > 0 && !schema.is_empty() {
             Some((0, 0))
         } else {
             None
         };
-
-        Self {
+        Ok(Self {
             data: x,
             schema,
             col_start_idx: 0,
@@ -51,14 +49,14 @@ impl Viewer {
             state: TableState::default().with_selected_cell(initial_cell),
             visible_n_row: 0,
             visible_n_col: 0,
-        }
+        })
     }
 
     pub fn selected_cell(&self) -> (usize, usize) {
         self.state.selected_cell().unwrap_or((0, 0))
     }
 
-    pub fn selected_value(&self) -> Option<Robj> {
+    pub fn selected_value(&self) -> Option<extendr_api::Result<Robj>> {
         if self.schema.is_empty() || self.schema.nrow == 0 {
             return None;
         }
@@ -70,7 +68,7 @@ impl Viewer {
         self.truncate = !self.truncate;
     }
 
-    pub fn render(&mut self, frame: &mut Frame) {
+    pub fn render(&mut self, frame: &mut Frame) -> extendr_api::Result<()> {
         let outer = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(1), Constraint::Min(0)])
@@ -110,7 +108,7 @@ impl Viewer {
             self.col_start_from_start,
             table_area.width as usize,
             truncate,
-        );
+        )?;
 
         self.col_start_idx = layout.col_range.start;
         self.col_end_idx = layout.col_range.end.saturating_sub(1);
@@ -126,7 +124,7 @@ impl Viewer {
                 .select_cell(Some((row_position, new_col_position)));
         }
 
-        self.visible_n_row = table_area.height as usize - HEADER_HEIGHT;
+        self.visible_n_row = (table_area.height as usize).saturating_sub(HEADER_HEIGHT);
         self.visible_n_col = layout.headers.len();
 
         let header_row = Row::new(layout.headers).height(HEADER_HEIGHT as u16);
@@ -135,7 +133,7 @@ impl Viewer {
             .iter()
             .map(|&w| Constraint::Length(w as u16))
             .collect();
-        let rows = transpose_cols(layout.values);
+        let rows = transpose_cols(layout.values)?;
 
         let table = Table::new(rows, widths)
             .header(header_row)
@@ -143,9 +141,11 @@ impl Viewer {
 
         let mut relative_state = self.relative_state(&row_window);
 
-        render_summary_header(&self.data, frame, summary_area);
+        render_summary_header(&self.data, frame, summary_area)?;
         render_index_column(frame, index_area, &index_labels);
         frame.render_stateful_widget(table, table_area, &mut relative_state);
+
+        Ok(())
     }
 
     fn compute_row_window(&self, available_height: usize) -> Range<usize> {
@@ -175,16 +175,12 @@ impl Viewer {
     }
 }
 
-fn render_summary_header(data: &Robj, frame: &mut Frame, area: Rect) {
-    let obj_sum_fn = R!("pillar::obj_sum").unwrap();
+fn render_summary_header(data: &Robj, frame: &mut Frame, area: Rect) -> extendr_api::Result<()> {
+    let obj_sum_fn = R!("pillar::obj_sum")?;
     let args = pairlist!(x = data);
-    let obj_summary = obj_sum_fn
-        .call(args)
-        .unwrap()
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let obj_summary = obj_sum_fn.call(args)?.as_str().unwrap_or("").to_string();
     let text = format!("# a {}", obj_summary);
     let paragraph = Paragraph::new(text).style(Style::default().fg(Color::Indexed(246)));
     frame.render_widget(paragraph, area);
+    Ok(())
 }

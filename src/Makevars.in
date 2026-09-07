@@ -3,12 +3,13 @@ LIBDIR = $(TARGET_DIR)/@LIBDIR@
 STATLIB = $(LIBDIR)/liblegs.a
 PKG_LIBS = -L$(LIBDIR) -llegs
 
+ifeq ($(shell uname),Darwin)
+PKG_LIBS += -framework AppKit -framework CoreFoundation
+endif
+
 all: $(SHLIB) rust_clean
-
 .PHONY: $(STATLIB)
-
 $(SHLIB): $(STATLIB)
-
 CARGOTMP = $(CURDIR)/.cargo
 VENDOR_DIR = $(CURDIR)/vendor
 
