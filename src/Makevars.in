@@ -1,12 +1,7 @@
 TARGET_DIR = ./rust/target
 LIBDIR = $(TARGET_DIR)/@LIBDIR@
 STATLIB = $(LIBDIR)/liblegs.a
-PKG_LIBS = -L$(LIBDIR) -llegs
-
-ifeq ($(shell uname),Darwin)
-PKG_LIBS += -framework AppKit -framework CoreFoundation
-endif
-
+PKG_LIBS = -L$(LIBDIR) -llegs @DARWIN_LIBS@
 all: $(SHLIB) rust_clean
 .PHONY: $(STATLIB)
 $(SHLIB): $(STATLIB)

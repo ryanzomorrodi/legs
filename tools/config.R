@@ -70,6 +70,13 @@ cfg <- if (is_debug) "debug" else "release"
   ""
 )
 
+is_darwin <- grepl("darwin", R.version$os)
+.darwin_libs <- ifelse(
+  is_darwin,
+  "-framework AppKit -framework CoreFoundation",
+  ""
+)
+
 # read in the Makevars.in file checking
 is_windows <- .Platform[["OS.type"]] == "windows"
 
@@ -102,7 +109,8 @@ new_txt <- gsub("@CRAN_FLAGS@", .cran_flags, mv_txt) |>
   gsub("@CLEAN_TARGET@", .clean_targets, x = _) |>
   gsub("@LIBDIR@", .libdir, x = _) |>
   gsub("@TARGET@", .target, x = _) |>
-  gsub("@PANIC_EXPORTS@", .panic_exports, x = _)
+  gsub("@PANIC_EXPORTS@", .panic_exports, x = _) |>
+  gsub("@DARWIN_LIBS@", .darwin_libs, x = _)
 
 message("Writing `", mv_ofp, "`.")
 con <- file(mv_ofp, open = "wb")
