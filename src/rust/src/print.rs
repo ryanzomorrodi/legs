@@ -100,7 +100,7 @@ pub fn buffer_to_ansi_string(buf: &Buffer) -> String {
     for y in area.top()..=last_row {
         for x in area.left()..area.right() {
             if let Some(cell) = buf.cell((x, y)) {
-                let style = normalize_style(cell.style());
+                let style = cell.style();
                 if Some(style) != last_style {
                     out.push_str(&style_to_sgr(style));
                     last_style = Some(style);
@@ -115,12 +115,4 @@ pub fn buffer_to_ansi_string(buf: &Buffer) -> String {
         }
     }
     out
-}
-
-fn normalize_style(style: Style) -> Style {
-    if style.bg == Some(Color::Yellow) && style.fg == Some(Color::Black) {
-        Style::default()
-    } else {
-        style
-    }
 }
