@@ -40,7 +40,7 @@ impl App {
         if !is_viewable(&value) {
             return Ok(());
         }
-        if self.view.data.is_vector() && self.view.data.len() == 1 {
+        if self.view.data.is_vector_atomic() && self.view.data.len() == 1 {
             return Ok(());
         }
         let new_viewer = Viewer::new(value)?;
