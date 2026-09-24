@@ -12,7 +12,7 @@ pub struct App {
 impl App {
     pub fn new(x: Robj) -> extendr_api::Result<Self> {
         Ok(Self {
-            view: Viewer::new(x)?,
+            view: Viewer::new(x, String::new())?,
             stack: Vec::new(),
             typed_num: None,
             should_quit: false,
@@ -43,7 +43,9 @@ impl App {
         if self.view.data.is_vector_atomic() && self.view.data.len() == 1 {
             return Ok(());
         }
-        let new_viewer = Viewer::new(value)?;
+
+        let child_prefix = self.view.path();
+        let new_viewer = Viewer::new(value, child_prefix)?;
         let old_viewer = std::mem::replace(&mut self.view, new_viewer);
         self.stack.push(old_viewer);
         Ok(())

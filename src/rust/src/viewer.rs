@@ -19,6 +19,7 @@ pub const DEFAULT_TRUNCATION: usize = 40;
 
 pub struct Viewer {
     pub data: Robj,
+    pub path_prefix: String,
     pub schema: RSchema,
     pub col_start_idx: usize,
     pub col_end_idx: usize,
@@ -31,7 +32,7 @@ pub struct Viewer {
 }
 
 impl Viewer {
-    pub fn new(x: Robj) -> extendr_api::Result<Self> {
+    pub fn new(x: Robj, path_prefix: String) -> extendr_api::Result<Self> {
         let schema = RSchema::build(&x)?;
         let initial_cell = if schema.nrow > 0 && !schema.is_empty() {
             Some((0, 0))
@@ -40,6 +41,7 @@ impl Viewer {
         };
         Ok(Self {
             data: x,
+            path_prefix,
             schema,
             col_start_idx: 0,
             col_end_idx: 0,
@@ -50,6 +52,18 @@ impl Viewer {
             visible_n_row: 0,
             visible_n_col: 0,
         })
+    }
+
+    pub fn path(&self) -> String {
+        append_segment(&self.path_prefix, &self.selected_segment())
+    }
+
+    fn selected_segment(&self) -> String {
+        if self.schema.is_empty() || self.schema.nrow == 0 {
+            return String::new();
+        }
+        let (row, col) = self.selected_cell();
+        self.schema.cell_path(&self.data, row, col)
     }
 
     pub fn selected_cell(&self) -> (usize, usize) {
@@ -69,6 +83,8 @@ impl Viewer {
     }
 
     pub fn render(&mut self, frame: &mut Frame) -> extendr_api::Result<()> {
+        let path = self.path();
+
         let outer = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(1), Constraint::Min(0)])
@@ -141,7 +157,7 @@ impl Viewer {
 
         let mut relative_state = self.relative_state(&row_window);
 
-        render_summary_header(&self.data, frame, summary_area)?;
+        render_summary_header(&self.data, &path, frame, summary_area)?;
         render_index_column(frame, index_area, &index_labels);
         frame.render_stateful_widget(table, table_area, &mut relative_state);
 
@@ -175,12 +191,35 @@ impl Viewer {
     }
 }
 
-fn render_summary_header(data: &Robj, frame: &mut Frame, area: Rect) -> extendr_api::Result<()> {
+fn render_summary_header(
+    data: &Robj,
+    path: &str,
+    frame: &mut Frame,
+    area: Rect,
+) -> extendr_api::Result<()> {
     let obj_sum_fn = R!("pillar::obj_sum")?;
     let args = pairlist!(x = data);
     let obj_summary = obj_sum_fn.call(args)?.as_str().unwrap_or("").to_string();
-    let text = format!("# a {}", obj_summary);
+    let text = if path.is_empty() {
+        format!("# a {}", obj_summary)
+    } else {
+        format!("# a {}  |  {}", obj_summary, path)
+    };
     let paragraph = Paragraph::new(text).style(Style::default().fg(Color::Indexed(246)));
     frame.render_widget(paragraph, area);
     Ok(())
+}
+
+fn append_segment(path: &str, segment: &str) -> String {
+    let is_array_slice =
+        segment.starts_with('[') && !segment.starts_with("[[") && !segment.contains('"');
+
+    if is_array_slice && path.ends_with(", ]") {
+        let without_bracket = &path[..path.len() - 1];
+        let base = without_bracket.trim_end_matches(", ");
+        let inner = &segment[1..segment.len() - 1];
+        format!("{base}, {inner}]")
+    } else {
+        format!("{path}{segment}")
+    }
 }

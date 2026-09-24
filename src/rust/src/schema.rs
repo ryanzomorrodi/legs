@@ -201,6 +201,7 @@ struct Pillar {
     path: Vec<usize>,
     display_path: String,
     full_display_path: String,
+    segs: Vec<String>,
 }
 
 fn collect_pillars(
@@ -241,6 +242,7 @@ fn resolve_pillars(children: &[(String, RColumn)]) -> Vec<Pillar> {
             path,
             display_path,
             full_display_path,
+            segs,
         });
     }
     pillars
@@ -266,6 +268,69 @@ impl RSchema {
 
     pub fn is_empty(&self) -> bool {
         self.pillars.is_empty()
+    }
+
+    pub fn is_flat(&self) -> bool {
+        self.pillars.len() == 1 && self.pillars[0].full_display_path.is_empty()
+    }
+
+    pub fn cell_path(&self, data: &Robj, row: usize, col: usize) -> String {
+        let Some(pillar) = self.pillars.get(col) else {
+            return String::new();
+        };
+        let (label, is_name) = resolve_row_label(data, row);
+        let row_label = quote_label(&label, is_name);
+        let segs = &pillar.segs;
+
+        let column_is_list = get_value(data, &pillar.path, None)
+            .map(|v| v.is_list() && !v.is_frame())
+            .unwrap_or(false);
+
+        if segs.len() <= 1 {
+            if self.is_flat() {
+                if data.is_list() {
+                    return format!("[[{row_label}]]");
+                }
+                if let Some(dim) = data.dim() {
+                    let n_dims = dim.len();
+                    if n_dims > 1 {
+                        let commas = ", ".repeat(n_dims - 1);
+                        return format!("[{row_label}{commas}]");
+                    }
+                }
+                return format!("[{row_label}]");
+            }
+            let seg = segs.first().cloned().unwrap_or_default();
+            if let Some(matrix_label) = matrix_col_label(&seg) {
+                return format!("[{row_label}, {matrix_label}]");
+            }
+            let col_name = strip_seg_prefix(&seg, true);
+            return if column_is_list {
+                format!("[[\"{col_name}\"]][[{}]]", row + 1)
+            } else {
+                format!("[{row_label}, \"{col_name}\"]")
+            };
+        }
+
+        let (last, prefix) = segs.split_last().expect("segs.len() > 1");
+        let mut path = String::new();
+        for (i, seg) in prefix.iter().enumerate() {
+            path.push_str(&format!("[[\"{}\"]]", strip_seg_prefix(seg, i == 0)));
+        }
+
+        if let Some(matrix_label) = matrix_col_label(last) {
+            path.push_str(&format!("[{row_label}, {matrix_label}]"));
+        } else {
+            let leaf = strip_seg_prefix(last, false);
+            path.push_str(&format!("[[\"{leaf}\"]]"));
+            path.push_str(&if column_is_list {
+                format!("[[{}]]", row + 1)
+            } else {
+                format!("[{row_label}]")
+            });
+        }
+
+        path
     }
 
     pub fn full_name(&self, idx: usize) -> Option<&str> {
@@ -336,5 +401,56 @@ pub fn nrow(x: &Robj) -> extendr_api::Result<usize> {
         Ok(first as usize)
     } else {
         Ok(x.len())
+    }
+}
+
+fn quote_label(label: &str, is_name: bool) -> String {
+    if is_name {
+        format!("\"{label}\"")
+    } else {
+        label.to_string()
+    }
+}
+
+fn strip_seg_prefix(seg: &str, is_root: bool) -> String {
+    if is_root {
+        seg.to_string()
+    } else {
+        seg.strip_prefix('$').unwrap_or(seg).to_string()
+    }
+}
+
+fn matrix_col_label(seg: &str) -> Option<String> {
+    let inner = seg.strip_prefix("[, ")?.strip_suffix(']')?;
+    match inner.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
+        Some(name) => Some(format!("\"{name}\"")),
+        None => Some(inner.to_string()),
+    }
+}
+
+fn resolve_row_label(x: &Robj, row: usize) -> (String, bool) {
+    let name = if x.is_frame() {
+        x.get_attrib("row.names").and_then(|r| {
+            r.as_str_vector()
+                .and_then(|v| v.get(row).map(|s| s.to_string()))
+        })
+    } else if x.is_matrix() {
+        x.get_attrib("dimnames")
+            .and_then(|d| d.as_list())
+            .and_then(|l| l.elt(0).ok())
+            .and_then(|n| {
+                n.as_str_vector()
+                    .and_then(|v| v.get(row).map(|s| s.to_string()))
+            })
+    } else {
+        x.get_attrib("names").and_then(|n| {
+            n.as_str_vector()
+                .and_then(|v| v.get(row).map(|s| s.to_string()))
+        })
+    };
+
+    match name {
+        Some(s) if !s.is_empty() => (s, true),
+        _ => ((row + 1).to_string(), false),
     }
 }
