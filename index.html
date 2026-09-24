@@ -13,7 +13,10 @@
 <link rel="manifest" href="site.webmanifest">
 <script src="lightswitch.js"></script><script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/Inter-0.4.10/font.css" rel="stylesheet">
+<link href="deps/JetBrains_Mono-0.4.10/font.css" rel="stylesheet">
+<link href="deps/Plus_Jakarta_Sans-0.4.10/font.css" rel="stylesheet">
+<link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="A TUI for viewing R data">
 <meta name="description" content="Provides an interactive terminal user interface for exploring data.frames, matricies, lists, and vectors. The interface design is highly similar to that of a tibble.">
@@ -79,7 +82,7 @@
 <h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
 </h2>
 <p><code>legs</code> is a Terminal User Interface (TUI) for viewing your data in R. <code>legs</code> is capable of viewing <code>data.frame</code>s, <code>matrix</code>s, <code>lists</code>, and atomic <code>vectors</code>. Just call <code><a href="reference/view.html">legs::view()</a></code> on your object to open the viewer in your terminal.</p>
-<p><img src="reference/figures/explore.gif"></p>
+<p><img src="reference/figures/demo.gif"></p>
 <p>Navigate the terminal with the following key bindings:</p>
 <table class="table">
 <thead><tr>
@@ -140,8 +143,8 @@
 </tbody>
 </table>
 <p>All scroll movement key bindings can also be prefixed with a number to perform it <code>&lt;n&gt;</code> times. For example, pressing <code>25h</code> scrolls down 25 rows.</p>
-<p><code><a href="reference/view.html">legs::view()</a></code> also prints the last frame shown and silently returns the last item viewed. Meaning you can use it to interactive pluck deeply nested data.</p>
-<p><img src="reference/figures/select_data.gif"></p>
+<p><code><a href="reference/view.html">legs::view()</a></code> also prints the last frame shown and silently returns the last item viewed. Meaning you can use it to interactively pluck deeply nested data.</p>
+<p><img src="reference/figures/pipe.gif"></p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="license">

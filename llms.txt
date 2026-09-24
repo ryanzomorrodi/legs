@@ -21,7 +21,7 @@ atomic `vectors`. Just call
 [`legs::view()`](https://ryanzomorrodi.github.io/legs/reference/view.md)
 on your object to open the viewer in your terminal.
 
-![](reference/figures/explore.gif)
+![](reference/figures/demo.gif)
 
 Navigate the terminal with the following key bindings:
 
@@ -46,9 +46,10 @@ rows.
 
 [`legs::view()`](https://ryanzomorrodi.github.io/legs/reference/view.md)
 also prints the last frame shown and silently returns the last item
-viewed. Meaning you can use it to interactive pluck deeply nested data.
+viewed. Meaning you can use it to interactively pluck deeply nested
+data.
 
-![](reference/figures/select_data.gif)
+![](reference/figures/pipe.gif)
 
 # Package index
 
