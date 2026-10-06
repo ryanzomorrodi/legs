@@ -1,26 +1,22 @@
 use crate::{
     app::App,
     event::{Event, EventHandler},
-    print::buffer_to_ansi_string,
-    tui::Tui,
+    tui::{buffer_to_ansi_string, Tui},
     update::{update, update_mouse},
 };
 use extendr_api::prelude::*;
 use ratatui::{backend::CrosstermBackend, Terminal};
+use std::{
+    sync::{atomic::Ordering, Arc},
+    time::Duration,
+};
 
 mod app;
-mod col_layout;
+mod data;
 mod event;
-mod format;
-mod help;
-mod index_col;
-mod movement;
-mod print;
-mod schema;
 mod tui;
 mod update;
-mod viewer;
-mod yank;
+mod view;
 
 /// @title Invoke legs Data Viewer
 /// @description Invoke the legs terminal user interface (tui) to interactively explore R data.
@@ -52,14 +48,28 @@ fn view(x: Robj) -> Result<Robj, Box<dyn std::error::Error>> {
     let run_result = (|| -> Result<(), Box<dyn std::error::Error>> {
         while !app.should_quit {
             tui.draw(&mut app)?;
-            if let Ok(event) = tui.events.next() {
-                match event {
-                    Event::Tick => {}
-                    Event::Key(key_event) => update(&mut app, key_event)?,
-                    Event::Mouse(mouse_event) => update_mouse(&mut app, mouse_event),
-                    Event::Resize(_, _) => {}
-                    Event::Error(msg) => return Err(msg.into()),
-                };
+
+            let scanning = app.view.search_active();
+            let timeout = if scanning {
+                Duration::from_millis(1)
+            } else {
+                Duration::from_millis(100)
+            };
+
+            match tui.events.next(timeout) {
+                Ok(Event::Tick) => {}
+                Ok(Event::Key(key_event)) => update(&mut app, key_event)?,
+                Ok(Event::Mouse(mouse_event)) => update_mouse(&mut app, mouse_event),
+                Ok(Event::Resize(_, _)) => {}
+                Ok(Event::Error(msg)) => return Err(msg.into()),
+                Err(_) => {}
+            }
+
+            if app.view.search_active() {
+                let pending = Arc::clone(&tui.events.input_pending);
+                app.view.pump_search(Duration::from_millis(8), &|| {
+                    pending.load(Ordering::SeqCst) > 0
+                })?;
             }
         }
         Ok(())

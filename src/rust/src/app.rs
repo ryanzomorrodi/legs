@@ -1,22 +1,22 @@
-use crate::{is_viewable, viewer::Viewer};
+use crate::{is_viewable, view::View};
 use extendr_api::prelude::*;
 
 pub struct App {
-    pub view: Viewer,
-    pub stack: Vec<Viewer>,
+    pub view: View,
+    pub stack: Vec<View>,
     pub typed_num: Option<usize>,
     pub should_quit: bool,
-    pub show_help: bool,
+    pub pending_c: bool,
 }
 
 impl App {
     pub fn new(x: Robj) -> extendr_api::Result<Self> {
         Ok(Self {
-            view: Viewer::new(x, String::new())?,
+            view: View::new(x, String::new())?,
             stack: Vec::new(),
             typed_num: None,
             should_quit: false,
-            show_help: false,
+            pending_c: false,
         })
     }
 
@@ -26,10 +26,6 @@ impl App {
 
     pub fn get_current_num(&self) -> Option<usize> {
         self.typed_num
-    }
-
-    pub fn toggle_help(&mut self) {
-        self.show_help = !self.show_help;
     }
 
     pub fn push_cell_as_viewer(&mut self) -> extendr_api::Result<()> {
@@ -45,7 +41,7 @@ impl App {
         }
 
         let child_prefix = self.view.path();
-        let new_viewer = Viewer::new(value, child_prefix)?;
+        let new_viewer = View::new(value, child_prefix)?;
         let old_viewer = std::mem::replace(&mut self.view, new_viewer);
         self.stack.push(old_viewer);
         Ok(())

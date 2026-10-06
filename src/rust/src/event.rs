@@ -1,7 +1,7 @@
 use ratatui::crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc, Arc,
     },
     thread,
@@ -24,6 +24,7 @@ pub struct EventHandler {
     receiver: mpsc::Receiver<Event>,
     running: Arc<AtomicBool>,
     handler: Option<thread::JoinHandle<()>>,
+    pub input_pending: Arc<AtomicUsize>,
 }
 
 impl EventHandler {
@@ -32,6 +33,8 @@ impl EventHandler {
         let (sender, receiver) = mpsc::channel();
         let running = Arc::new(AtomicBool::new(true));
         let running_clone = Arc::clone(&running);
+        let input_pending = Arc::new(AtomicUsize::new(0));
+        let pending_clone = Arc::clone(&input_pending);
         let handler = thread::spawn(move || {
             let mut last_tick = Instant::now();
             while running_clone.load(Ordering::Relaxed) {
@@ -43,13 +46,15 @@ impl EventHandler {
                 match event::poll(timeout) {
                     Ok(true) => match event::read() {
                         Ok(CrosstermEvent::Key(e)) => {
-                            if e.kind == event::KeyEventKind::Press
-                                && sender.send(Event::Key(e)).is_err()
-                            {
-                                break;
+                            if e.kind == event::KeyEventKind::Press {
+                                pending_clone.fetch_add(1, Ordering::SeqCst);
+                                if sender.send(Event::Key(e)).is_err() {
+                                    break;
+                                }
                             }
                         }
                         Ok(CrosstermEvent::Mouse(e)) => {
+                            pending_clone.fetch_add(1, Ordering::SeqCst);
                             if sender.send(Event::Mouse(e)).is_err() {
                                 break;
                             }
@@ -87,16 +92,22 @@ impl EventHandler {
             receiver,
             running,
             handler: Some(handler),
+            input_pending,
         }
     }
 
-    pub fn next(&self) -> Result<Event, mpsc::RecvTimeoutError> {
-        self.receiver.recv_timeout(Duration::from_millis(100))
+    pub fn next(&self, timeout: Duration) -> Result<Event, mpsc::RecvTimeoutError> {
+        let ev = self.receiver.recv_timeout(timeout)?;
+        if matches!(ev, Event::Key(_) | Event::Mouse(_)) {
+            self.input_pending.fetch_sub(1, Ordering::SeqCst);
+        }
+        Ok(ev)
     }
 
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::Relaxed);
         while self.receiver.try_recv().is_ok() {}
+        self.input_pending.store(0, Ordering::SeqCst);
         if let Some(handle) = self.handler.take() {
             let _ = handle.join();
         }

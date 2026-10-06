@@ -34,10 +34,14 @@ Key | Action
 `^` | Select first column
 `$` | Select last column
 `<n>t` | Toggle truncation (or set truncation to `<n>` characters)
+`/` | Regex search within the current column
+`//` | Repeat last search
+`c/` | Regex search of column names
+`cv` | Column view (fuzzy search of column names)
+`d` | End a regex search 
 `Enter` | View the cell highlighted
 `esc` | View the parent data structure
 `y` | Yank (copy) selected cell
-`?` | View this help screen
 `q` | Exit
 
 All scroll movement key bindings can also be prefixed with a number to perform it `<n>` times. For example,
