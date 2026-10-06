@@ -97,3 +97,27 @@ Enter
 Sleep 1s
 Type "llllllllljjjjjjjjjjjjjjjjhhhhhhhhhkkkkkkkkkkkkkkkk"
 Sleep 1s
+
+Type "cv"
+Sleep 1s
+Type "gear"
+Sleep 1s
+Enter
+Sleep 1s
+Type "/3"
+Enter
+Sleep 1s
+Type "n"
+Sleep 1s
+Type "n"
+Sleep 1s
+Type "c/mpg|hp"
+Enter
+Sleep 2s
+Type "n"
+Sleep 2s
+Type "//"
+Sleep 2s
+Type "N"
+Sleep 1s
+Type "N"
